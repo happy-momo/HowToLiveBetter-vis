@@ -4,6 +4,8 @@
 
 # 高性价比人生指南 · 书页版
 
+https://happy-momo.github.io/HowToLiveBetter-vis/
+
 **HowToLiveBetter · Book-Viewer Edition**
 
 一本竖立、从顶边往下掀的相册式网页书，用真实的 3D 翻页效果阅读《高性价比人生指南》全部 670 条内容。
