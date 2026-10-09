@@ -110,9 +110,7 @@ export function reflow() {
   refreshPgbar();
 }
 
-let busy = false;
-
-export function flipToPage(pid) {
+export function flipToPage(pid, { animate = true } = {}) {
   if (busy || pid < 0 || pid >= state.pages.length) return;
   const cur = pageIdOfCurrent();
   if (pid === cur) return;
@@ -120,39 +118,57 @@ export function flipToPage(pid) {
   const dir = pid > cur ? 1 : -1;
   const targetFlat = state.pages[pid].topEntry;
 
+  if (!animate) {
+    // 面板点击/章节跳转：瞬间切页，不播动画
+    renderPage(front, pid);
+    state.current.flat = targetFlat;
+    updateHash(); refreshPgbar(); saveProgress();
+    if (!$('panel').hidden) panelAndToc();
+    busy = false;
+    return;
+  }
+
   if (dir > 0) {
     // 向后翻：当前页作为 turning 掀开，露出 back（已预渲染为 pid）
-    if (Number($('back').dataset.page) !== pid) renderPage($('back'), pid);
-    $('turning').innerHTML = $('front').innerHTML;
-    $('turning').className = 'sheet flipping';
-    $('turning').style.transform = '';
+    if (Number(back.dataset.page) !== pid) renderPage(back, pid);
+    turning.innerHTML = front.innerHTML;
+    turning.className = 'sheet flipping';
+    turning.style.transform = '';
   } else {
     // 向前翻：把目标页放到 turning，从上方翻下覆盖当前页
-    $('turning').innerHTML = `<div class="paper">${renderPageHTML(pid)}<div class="curl"></div></div>`;
-    $('turning').className = 'sheet flipping-back';
-    $('turning').style.transform = 'rotateX(-178deg) translateZ(2px)';
+    turning.innerHTML = `
+      <div class="paper">${renderPageHTML(pid)}<div class="curl"></div></div>`;
+    turning.className = 'sheet flipping-back';
+    turning.style.transform = 'rotateX(-178deg) translateZ(2px)';
   }
 
   function finish() {
-    $('front').innerHTML = $('turning').innerHTML;
-    $('front').dataset.page = pid;
-    $('turning').className = 'sheet';
-    $('turning').style.transform = '';
-    $('turning').innerHTML = '';
+    // forward：露出的是 back（新页）；backward：turning 里就是新页
+    front.innerHTML = dir > 0 ? back.innerHTML : turning.innerHTML;
+    front.dataset.page = pid;
+    turning.className = 'sheet';
+    turning.style.transform = '';
+    turning.innerHTML = '';
     state.current.flat = targetFlat;
-    updateHash(); refreshPgbar(); saveProgress(); panelAndToc();
+    updateHash(); refreshPgbar(); saveProgress();
+    if (!$('panel').hidden) panelAndToc();
     busy = false;
   }
 
-  $('turning').addEventListener('animationend', finish, { once: true });
+  turning.addEventListener('animationend', finish, { once: true });
 }
 
-export function flipDir(dir) { flipToPage(pageIdOfCurrent() + dir); }
-export function flipToFlat(flatIndex) {
+export function flipDir(dir) { flipToPage(pageIdOfCurrent() + dir, { animate: true }); }
+export function flipToFlat(flatIndex, { animate = true } = {}) {
   const pid = state.pageOfEntry.get(flatIndex);
   if (pid == null) return;
-  if (pid === pageIdOfCurrent()) { state.current.flat = flatIndex; updateHash(); saveProgress(); panelAndToc(); return; }
-  flipToPage(pid);
+  if (pid === pageIdOfCurrent()) {
+    state.current.flat = flatIndex;
+    updateHash(); refreshPgbar(); saveProgress();
+    if (!$('panel').hidden) panelAndToc();
+    return;
+  }
+  flipToPage(pid, { animate });
 }
 
 export function updateHash() {
@@ -237,7 +253,7 @@ export function panelAndToc() {
     const secId = n.dataset.sec;
     if (secId === sec.sectionId) return;
     const targetSection = state.corpus.sections.find(x => x.sectionId === secId);
-    flipToFlat(state.entryIndex.get(targetSection.entries[0].entryId));
+    flipToFlat(state.entryIndex.get(targetSection.entries[0].entryId), { animate: false });
     closePanel();
   });
   renderProgress(sec);
